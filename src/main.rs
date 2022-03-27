@@ -1,7 +1,5 @@
 // Hide console by default on windows
 #![windows_subsystem = "windows"]
-// Dead code bad, but we don't want a warning for our config file struct
-#![allow(dead_code)]
 
 use serde_derive::Deserialize;
 use std::{fs, path::Path};
