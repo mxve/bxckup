@@ -15,3 +15,5 @@ exclude = [".git", "node_modules"]
 [[task]]
 ...
 ```
+
+- ```-c, --config <config(.toml)>```

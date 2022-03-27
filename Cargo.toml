@@ -12,3 +12,4 @@ serde = "1.0.136"
 serde_derive = "1.0.136"
 walkdir = "2.3.2"
 crc32fast = "1.3.2"
+clap = { version = "3.1.6", features = ["derive"] }

@@ -4,8 +4,9 @@
 
 use serde_derive::Deserialize;
 use std::{fs, path::Path};
-use walkdir::WalkDir;
 use winapi::um::wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS};
+
+mod args;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -29,12 +30,6 @@ fn load_config(path: &Path) -> Config {
     cfg
 }
 
-fn iterate_tasks(config: Config) {
-    for task in config.task {
-        handle_task(task);
-    }
-}
-
 fn copy_file(source_path: &Path, target_path: &Path) {
     fs::copy(source_path, target_path).unwrap();
     println!(
@@ -44,42 +39,51 @@ fn copy_file(source_path: &Path, target_path: &Path) {
     );
 }
 
+fn backup_file(source_path: &Path, target_path: &Path, exclude: &Vec<String>) {
+    let target_dir = target_path.parent().unwrap();
+
+    for exclude in exclude {
+        if source_path.to_str().unwrap().contains(exclude) {
+            println!("Skipping excluded file {}", source_path.to_str().unwrap());
+            return;
+        }
+    }
+
+    if !source_path.is_file() {
+        return;
+    }
+
+    if target_path.exists() {
+        let source_checksum = crc32fast::hash(&fs::read(&source_path).unwrap());
+        let target_checksum = crc32fast::hash(&fs::read(&target_path).unwrap());
+
+        if source_checksum == target_checksum {
+            return;
+        }
+
+        println!("File changed: {}", &source_path.to_str().unwrap());
+    } else {
+        fs::create_dir_all(target_dir).unwrap();
+    }
+
+    copy_file(source_path, &target_path);
+}
+
+fn iterate_tasks(config: Config) {
+    for task in config.task {
+        handle_task(task);
+    }
+}
+
 fn handle_task(task: TaskConfig) {
     println!("{} -> {}", task.source, task.target);
 
-    'files: for file in WalkDir::new(&task.source) {
+    for file in walkdir::WalkDir::new(&task.source) {
         let file = file.unwrap();
         let source_path = file.path();
-
-        for exclude in &task.exclude {
-            if source_path.to_str().unwrap().contains(exclude) {
-                println!("Skipping excluded file {}", source_path.to_str().unwrap());
-                continue 'files;
-            }
-        }
-
-        if !source_path.is_file() {
-            continue;
-        }
-
         let relative_path = source_path.strip_prefix(&task.source).unwrap();
         let target_path = Path::join(Path::new(&task.target), relative_path);
-        let target_dir = target_path.parent().unwrap();
-
-        if target_path.exists() {
-            let source_checksum = crc32fast::hash(&fs::read(&source_path).unwrap());
-            let target_checksum = crc32fast::hash(&fs::read(&target_path).unwrap());
-
-            if source_checksum == target_checksum {
-                continue;
-            }
-
-            println!("File changed: {}", relative_path.to_str().unwrap());
-        } else {
-            fs::create_dir_all(target_dir).unwrap();
-        }
-
-        copy_file(source_path, &target_path);
+        backup_file(source_path, &target_path, &task.exclude);
     }
 }
 
@@ -90,6 +94,9 @@ fn main() {
         AttachConsole(ATTACH_PARENT_PROCESS);
     }
 
-    let config = load_config(Path::new("config.toml"));
+    let args = args::get();
+    println!("{}", args.config.to_str().unwrap());
+
+    let config = load_config(Path::new(&args.config));
     iterate_tasks(config);
 }
