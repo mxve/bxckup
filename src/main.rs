@@ -18,12 +18,13 @@ struct TaskConfig {
     source: String,
     target: String,
     exclude: Vec<String>,
+    remove_deleted: bool,
 }
 
 fn load_config(path: &Path) -> Config {
     let cfg_file = fs::read_to_string(path).unwrap_or_else(|_| "".to_string());
     let cfg: Config = toml::from_str(&cfg_file).unwrap_or_else(|error| {
-        println!("Error parsing config: {}", error);
+        println!("Error parsing config {}", error);
         std::process::exit(1);
     });
 
@@ -61,7 +62,7 @@ fn backup_file(source_path: &Path, target_path: &Path, exclude: &Vec<String>) {
             return;
         }
 
-        println!("File changed: {}", &source_path.to_str().unwrap());
+        println!("File changed {}", &source_path.to_str().unwrap());
     } else {
         fs::create_dir_all(target_dir).unwrap();
     }
@@ -84,6 +85,32 @@ fn handle_task(task: TaskConfig) {
         let relative_path = source_path.strip_prefix(&task.source).unwrap();
         let target_path = Path::join(Path::new(&task.target), relative_path);
         backup_file(source_path, &target_path, &task.exclude);
+    }
+
+    if task.remove_deleted {
+        for file in walkdir::WalkDir::new(&task.target) {
+            
+            let file = file.unwrap();
+            let target_path = file.path();
+            let relative_path = target_path.strip_prefix(&task.target).unwrap();
+            let source_path = Path::join(Path::new(&task.source), relative_path);
+
+
+            if !source_path.exists() {
+                println!("Deleting {}", target_path.to_str().unwrap());
+
+                if !target_path.is_file() {
+                    fs::remove_dir_all(target_path).unwrap_or_else(|error| {
+                        println!("Error deleting {}", error);
+                    });
+                    continue
+                }
+
+                fs::remove_file(target_path).unwrap_or_else(|error| {
+                    println!("Error deleting {}", error);
+                });
+            }
+        }
     }
 }
 

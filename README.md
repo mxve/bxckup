@@ -11,6 +11,8 @@ target = "B:\\bxckup\\test-target"
 # exclude files whose path contains any of the following strings, respects case
 # matches at any point in path. make sure to use dir delmiters for your OS
 exclude = [".git", "node_modules"]
+# delete files in target that are not in source
+remove_deleted = false
 
 [[task]]
 ...

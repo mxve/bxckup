@@ -1,0 +1,8 @@
+- [] clap
+  - [x] config path
+  - [] target
+  - [] source
+  - [] exclude?
+- colored
+- winres
+- remove deleted files option
