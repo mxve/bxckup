@@ -44,24 +44,20 @@ fn copy_file(source_path: &Path, target_path: &Path) {
 fn crc32_files(file1: &Path, file2: &Path) -> bool {
     let checksum1 = crc32fast::hash(&fs::read(&file1).unwrap());
     let checksum2 = crc32fast::hash(&fs::read(&file2).unwrap());
-
     if checksum1 == checksum2 {
         return true;
     }
-
     false
 }
 
 fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String]) {
     let target_dir = target_path.parent().unwrap();
-
     for e in exclude {
         if source_path.to_str().unwrap().contains(e) {
             //println!("Skipping excluded file {}", source_path.to_str().unwrap());
             return;
         }
     }
-
     if !source_path.is_file() {
         return;
     }
@@ -72,7 +68,6 @@ fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String]) {
             //println!("Skipping file {}", source_path.to_str().unwrap());
             return;
         }
-
         println!("File changed {}", &source_path.to_str().unwrap());
     } else {
         fs::create_dir_all(target_dir).unwrap_or_else(|error| {
