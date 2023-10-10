@@ -64,7 +64,10 @@ fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String], skip_
         return;
     }
 
-    if target_path.exists() && !skip_crc {
+    if target_path.exists() {
+        if *skip_crc {
+            return;
+        }
         if crc32_files(source_path, target_path) {
             println!(
                 "File matches on source and target {}",
