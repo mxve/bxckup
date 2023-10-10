@@ -19,6 +19,7 @@ struct TaskConfig {
     target: String,
     exclude: Vec<String>,
     remove_deleted: bool,
+    most_recent_only: bool,
 }
 
 // Parse config file to structs
@@ -42,8 +43,8 @@ fn copy_file(source_path: &Path, target_path: &Path) {
 }
 
 fn crc32_files(file1: &Path, file2: &Path) -> bool {
-    let checksum1 = crc32fast::hash(&fs::read(&file1).unwrap());
-    let checksum2 = crc32fast::hash(&fs::read(&file2).unwrap());
+    let checksum1 = crc32fast::hash(&fs::read(file1).unwrap());
+    let checksum2 = crc32fast::hash(&fs::read(file2).unwrap());
     if checksum1 == checksum2 {
         return true;
     }
@@ -62,19 +63,23 @@ fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String]) {
         return;
     }
 
-    // compare file hashes if target already exists, otherwise make sure the directory exists, if not create it recursively
     if target_path.exists() {
         if crc32_files(source_path, target_path) {
-            //println!("Skipping file {}", source_path.to_str().unwrap());
+            println!("File matches on source and target {}", source_path.to_str().unwrap());
             return;
         }
-        println!("File changed {}", &source_path.to_str().unwrap());
     } else {
         fs::create_dir_all(target_dir).unwrap_or_else(|error| {
             println!("Error creating target directory {}", error);
             std::process::exit(1);
         });
     }
+
+    println!(
+        "Copying {} to {}",
+        source_path.display(),
+        target_path.display()
+    );
 
     copy_file(source_path, target_path);
 }
@@ -90,14 +95,32 @@ fn iterate_tasks(config: Config) {
 fn handle_task(task: TaskConfig) {
     println!("{} -> {}", task.source, task.target);
 
-    // backup files in source dir to target dir
-    for file in walkdir::WalkDir::new(&task.source) {
-        let file = file.unwrap();
-        let source_path = file.path();
-        let relative_path = source_path.strip_prefix(&task.source).unwrap();
-        let target_path = Path::join(Path::new(&task.target), relative_path);
+    if task.most_recent_only {
+        let last_modified_file = std::fs::read_dir(&task.source)
+            .expect("Couldn't access local directory")
+            .flatten()
+            .filter(|f| f.metadata().unwrap().is_file())
+            .max_by_key(|x| x.metadata().unwrap().modified().unwrap());
+        match last_modified_file {
+            Some(file) => {
+                let source_path = file.path();
+                let relative_path = source_path.strip_prefix(&task.source).unwrap();
+                let target_path = Path::join(Path::new(&task.target), relative_path);
+                backup_file(&source_path, &target_path, &task.exclude);
+            }
+            None => {
+                println!("No files found in {}", task.source);
+            }
+        }
+    } else {
+        for file in walkdir::WalkDir::new(&task.source) {
+            let file = file.unwrap();
+            let source_path = file.path();
+            let relative_path = source_path.strip_prefix(&task.source).unwrap();
+            let target_path = Path::join(Path::new(&task.target), relative_path);
 
-        backup_file(source_path, &target_path, &task.exclude);
+            backup_file(source_path, &target_path, &task.exclude);
+        }
     }
 
     // delete files that have been deleted from source dir from target dir
