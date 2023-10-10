@@ -20,6 +20,7 @@ struct TaskConfig {
     exclude: Vec<String>,
     remove_deleted: bool,
     most_recent_only: bool,
+    skip_crc: bool,
 }
 
 // Parse config file to structs
@@ -51,7 +52,7 @@ fn crc32_files(file1: &Path, file2: &Path) -> bool {
     false
 }
 
-fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String]) {
+fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String], skip_crc: &bool) {
     let target_dir = target_path.parent().unwrap();
     for e in exclude {
         if source_path.to_str().unwrap().contains(e) {
@@ -63,9 +64,12 @@ fn backup_file(source_path: &Path, target_path: &Path, exclude: &[String]) {
         return;
     }
 
-    if target_path.exists() {
+    if target_path.exists() && !skip_crc {
         if crc32_files(source_path, target_path) {
-            println!("File matches on source and target {}", source_path.to_str().unwrap());
+            println!(
+                "File matches on source and target {}",
+                source_path.to_str().unwrap()
+            );
             return;
         }
     } else {
@@ -106,7 +110,7 @@ fn handle_task(task: TaskConfig) {
                 let source_path = file.path();
                 let relative_path = source_path.strip_prefix(&task.source).unwrap();
                 let target_path = Path::join(Path::new(&task.target), relative_path);
-                backup_file(&source_path, &target_path, &task.exclude);
+                backup_file(&source_path, &target_path, &task.exclude, &task.skip_crc);
             }
             None => {
                 println!("No files found in {}", task.source);
@@ -119,7 +123,7 @@ fn handle_task(task: TaskConfig) {
             let relative_path = source_path.strip_prefix(&task.source).unwrap();
             let target_path = Path::join(Path::new(&task.target), relative_path);
 
-            backup_file(source_path, &target_path, &task.exclude);
+            backup_file(source_path, &target_path, &task.exclude, &task.skip_crc);
         }
     }
 

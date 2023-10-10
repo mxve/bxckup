@@ -9,3 +9,4 @@ exclude = [".git", "node_modules"]
 # delete files in target that are not in source
 remove_deleted = false
 most_recent_only = false
+skip_crc = false
